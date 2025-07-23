@@ -1,0 +1,25 @@
+{
+  "name": "quasar-server",
+  "version": "1.0.0",
+  "description": "Quasar Server emulator",
+  "main": "src/main.ts",
+  "author": "radioegor146",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@discordjs/opus": "^0.10.0",
+    "@types/express": "^5.0.3",
+    "@types/express-ws": "^3.0.5",
+    "@types/node": "^24.0.7",
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "openai": "^5.8.2",
+    "protobufjs": "^7.5.3",
+    "tslog": "^4.9.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "ws": "^8.18.3"
+  }
+}
