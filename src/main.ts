@@ -7,6 +7,7 @@ import {OpenAI} from "openai";
 import {GigaAMSTTBackend} from "./backend/stt/gigaam";
 import {OpenAITTSBackend} from "./backend/tts/openai";
 import {BasicProcessorBackend} from "./backend/processors/basic";
+import {BufferedAudioMetadataBackend} from "./backend/audio-metadata/buffered";
 
 dotenv.config({
     path: ".env.local"
@@ -27,6 +28,9 @@ const TTS_OPENAI_API_KEY = process.env.TTS_OPENAI_API_KEY ?? "";
 const TTS_OPENAI_MODEL = process.env.TTS_OPENAI_MODEL ?? "";
 const TTS_OPENAI_VOICE = process.env.TTS_OPENAI_VOICE ?? "IVONA 2 Tatyana OEM";
 const TTS_OPENAI_SPEED = parseFloat(process.env.TTS_OPENAI_SPEED ?? "1");
+
+const AUDIO_METADATA_URLS = (process.env.AUDIO_METADATA_URLS ?? "").split(",")
+    .filter(url => url);
 
 const app = express();
 
@@ -49,7 +53,8 @@ registerUniproxyAliceYandexNetRouter({
         model: TTS_OPENAI_MODEL,
         voice: TTS_OPENAI_VOICE,
         speed: TTS_OPENAI_SPEED
-    })
+    }),
+    audioMetadata: new BufferedAudioMetadataBackend(AUDIO_METADATA_URLS)
 }, app, server);
 
 app.use((req, res) => {

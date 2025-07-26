@@ -21,7 +21,8 @@ export class OpenAIProcessorBackend implements ProcessorBackend {
         return {
             text: completion.choices[0].message.content ?? "",
             requireMoreInput: false,
-            sessionId: randomUUID()
+            sessionId: randomUUID(),
+            directives: []
         };
     }
 }

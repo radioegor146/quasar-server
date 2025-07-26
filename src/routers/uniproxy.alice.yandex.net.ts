@@ -5,7 +5,7 @@ import {RawData, Server as WSServer, WebSocket} from "ws";
 import {loadProto} from "../proto";
 import {randomUUID} from "node:crypto";
 import {
-    AudioFormat, BiometryAge, BiometryData, BiometryGender,
+    AudioFormat, AudioMetadataBackend, AudioMetadataBackendSession,
     ProcessorBackend,
     STTBackend,
     STTBackendSession,
@@ -20,6 +20,7 @@ export interface Backends {
     stt: STTBackend;
     processor: ProcessorBackend;
     tts: TTSBackend;
+    audioMetadata: AudioMetadataBackend;
 }
 
 const TClientMessageProto = loadProto(
@@ -47,11 +48,12 @@ class ClientProcessingSession {
     private logger = getLogger<ClientProcessingSession>();
 
     private sttSession: STTBackendSession | null = null;
+    private audioMetadataSession: AudioMetadataBackendSession | null = null;
     private audioDataBuffer: Buffer[] = [];
     private cancelled: boolean = false;
     private finished: boolean = false;
     private finalTranscribedChunk: STTChunkTranscribeResult | null = null;
-    private biometryData: BiometryData | null = null;
+    private stationMetadata: object = {};
 
     constructor(private readonly backends: Backends,
                 private readonly callbacks: ClientProcessingSessionCallbacks,
@@ -59,19 +61,27 @@ class ClientProcessingSession {
     }
 
     startVoiceInput(params: VoiceInputStartParams): void {
-        this.backends.stt.startTranscribing({
-            format: params.format
-        }).then(sttSession => {
+        (async () => {
+            const [sttSession, audioMetadataSession] = await Promise.all([
+                this.backends.stt.startTranscribing({
+                    format: params.format
+                }),
+                this.backends.audioMetadata.startCapturing({
+                    format: params.format
+                })
+            ]);
             sttSession.setCallback(result => {
                 this.onSttTranscribed(result);
             });
             for (const audioData of this.audioDataBuffer) {
                 sttSession.transcribeChunk(audioData);
+                audioMetadataSession.processChunk(audioData);
             }
             this.sttSession = sttSession;
+            this.audioMetadataSession = audioMetadataSession;
             this.audioDataBuffer = [];
-        }).catch(e => {
-            this.logger.error(`Failed to start transcribing: ${e}`);
+        })().catch(e => {
+            this.logger.error(`Failed to start transcribing/capturing: ${e}`);
         });
         this.callbacks.onStarted();
     }
@@ -96,68 +106,80 @@ class ClientProcessingSession {
         if (this.cancelled || this.finished) {
             return;
         }
-        if (this.sttSession) {
+
+        if (this.sttSession && this.audioMetadataSession) {
             this.sttSession.transcribeChunk(audioData);
+            this.audioMetadataSession.processChunk(audioData);
         } else {
             this.audioDataBuffer.push(audioData);
         }
     }
 
-    handleBiometryData(biometryData: BiometryData): void {
-        this.biometryData = biometryData;
+    handleMatchedUserData(matchedUserData: object): void {
+        this.stationMetadata = {
+            ...this.stationMetadata,
+            ...matchedUserData
+        };
     }
 
     handleVoiceInputEnd(): void {
         if (this.cancelled || this.finished) {
             return;
         }
-        if (this.sttSession) {
+        let audioMetadataPromise: Promise<object> = Promise.resolve({});
+        if (this.sttSession && this.audioMetadataSession) {
             this.sttSession.close();
             this.sttSession = null;
             this.audioDataBuffer = [];
+            audioMetadataPromise = this.audioMetadataSession.finish();
         }
         const requestText = this.finalTranscribedChunk?.text ?? "";
         const willProcess = requestText.length > 0;
         this.callbacks.onFullyTranscribed(requestText, willProcess);
         if (!willProcess) {
+            audioMetadataPromise.catch(e => logger.warn(`Failed to finish audio metadata session: ${e}`));
             this.finish();
             return;
         }
-        this.backends.processor.process({
-            text: requestText,
-            sessionId: this.processingBackendSessionId ?? undefined,
-            biometry: this.biometryData ?? {
-                age: "unknown",
-                gender: "unknown"
-            }
-        })
-            .then(result => {
-                if (this.cancelled) {
-                    return;
-                }
-
-                this.callbacks.onProcessed(result.text, result.requireMoreInput,
-                    result.sessionId, result.directives);
-
-                this.backends.tts.synthesize({
-                    text: result.text
+        audioMetadataPromise
+            .then(audioMetadata => {
+                this.backends.processor.process({
+                    text: requestText,
+                    sessionId: this.processingBackendSessionId ?? undefined,
+                    metadata: {
+                        ...this.stationMetadata,
+                        ...audioMetadata
+                    }
                 })
                     .then(result => {
                         if (this.cancelled) {
                             return;
                         }
 
-                        this.callbacks.onSynthesized(result.format, result.voiceOutput);
+                        this.callbacks.onProcessed(result.text, result.requireMoreInput,
+                            result.sessionId, result.directives);
 
-                        this.finish();
+                        this.backends.tts.synthesize({
+                            text: result.text
+                        })
+                            .then(result => {
+                                if (this.cancelled) {
+                                    return;
+                                }
+
+                                this.callbacks.onSynthesized(result.format, result.voiceOutput);
+
+                                this.finish();
+                            })
+                            .catch(e => {
+                                this.logger.error(`Failed to synthesize: ${e}`);
+                            });
                     })
                     .catch(e => {
-                        this.logger.error(`Failed to synthesize: ${e}`);
+                        this.logger.error(`Failed to process: ${e}`);
                     });
             })
-            .catch(e => {
-                this.logger.error(`Failed to process: ${e}`);
-            });
+            .catch(e => logger.error(`Failed to finish audio metadata session: ${e}`))
     }
 
     private onSttTranscribed(result: STTChunkTranscribeResult): void {
@@ -263,17 +285,17 @@ class UniProxyConnection {
 
         const biometryInfo = clientMessage.Event.MatchedUser.Request.Event.BiometryClassification.Simple;
 
-        const ageClassNames: Record<string, BiometryAge> = {
+        const ageClassNames: Record<string, string> = {
             "adult": "adult",
             "child": "child"
         };
 
-        const genderClassNames: Record<string, BiometryGender> = {
+        const genderClassNames: Record<string, string> = {
             "male": "male",
             "female": "female"
         };
 
-        session.handleBiometryData({
+        session.handleMatchedUserData({
             age: ageClassNames[biometryInfo.find((item: any) => item.Tag === "children")?.ClassName] ?? "unknown",
             gender: genderClassNames[biometryInfo.find((item: any) => item.Tag === "gender")?.ClassName] ?? "unknown",
         });

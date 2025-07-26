@@ -35,17 +35,23 @@ export interface STTBackend {
     startTranscribing(params: STTTranscribingParams): Promise<STTBackendSession>;
 }
 
-export type BiometryAge = "unknown" | "child" | "adult";
-export type BiometryGender = "unknown" | "female" | "male";
+export interface AudioMetadataCapturingParams {
+    format: AudioFormat;
+}
 
-export interface BiometryData {
-    age: BiometryAge;
-    gender: BiometryGender;
+export abstract class AudioMetadataBackendSession {
+    abstract processChunk(chunk: Buffer): void;
+
+    abstract finish(): Promise<object>;
+}
+
+export interface AudioMetadataBackend {
+    startCapturing(params: AudioMetadataCapturingParams): Promise<AudioMetadataBackendSession>;
 }
 
 export interface ProcessorRequest {
     text: string;
-    biometry: BiometryData;
+    metadata: object;
     sessionId?: string;
 }
 
