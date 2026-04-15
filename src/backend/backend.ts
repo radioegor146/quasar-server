@@ -49,10 +49,13 @@ export interface AudioMetadataBackend {
     startCapturing(params: AudioMetadataCapturingParams): Promise<AudioMetadataBackendSession>;
 }
 
+export type ProcessorRequestSource = "textOrVoice" | "rawCommand";
+
 export interface ProcessorRequest {
     text: string;
     metadata: object;
     sessionId?: string;
+    isExternalEvent?: boolean;
 }
 
 export interface ProcessorResponse {

@@ -7,10 +7,13 @@ import {randomUUID} from "node:crypto";
 import {
     AudioFormat, AudioMetadataBackend, AudioMetadataBackendSession,
     ProcessorBackend,
+    ProcessorRequest,
+    ProcessorResponse,
     STTBackend,
     STTBackendSession,
     STTChunkTranscribeResult,
-    TTSBackend
+    TTSBackend,
+    ProcessorRequestSource
 } from "../backend/backend";
 import {AliceDirective, convertToAliceResponseDirective} from "./alice/directives";
 
@@ -122,6 +125,45 @@ class ClientProcessingSession {
         };
     }
 
+    private process(text: string, metadata: object, isExternalEvent: boolean): void {
+        this.backends.processor.process({
+            text: text,
+            sessionId: this.processingBackendSessionId ?? undefined,
+            metadata: {
+                ...this.stationMetadata,
+                ...metadata
+            },
+            isExternalEvent
+        })
+            .then(result => {
+                if (this.cancelled) {
+                    return;
+                }
+
+                this.callbacks.onProcessed(result.text, result.requireMoreInput,
+                    result.sessionId, result.directives);
+
+                this.backends.tts.synthesize({
+                    text: result.text
+                })
+                    .then(result => {
+                        if (this.cancelled) {
+                            return;
+                        }
+
+                        this.callbacks.onSynthesized(result.format, result.voiceOutput);
+
+                        this.finish();
+                    })
+                    .catch(e => {
+                        this.logger.error(`Failed to synthesize: ${e}`);
+                    });
+            })
+            .catch(e => {
+                this.logger.error(`Failed to process: ${e}`);
+            });
+    }
+
     handleVoiceInputEnd(): void {
         if (this.cancelled || this.finished) {
             return;
@@ -143,57 +185,30 @@ class ClientProcessingSession {
         }
         audioMetadataPromise
             .then(audioMetadata => {
-                this.backends.processor.process({
-                    text: requestText,
-                    sessionId: this.processingBackendSessionId ?? undefined,
-                    metadata: {
-                        ...this.stationMetadata,
-                        ...audioMetadata
-                    }
-                })
-                    .then(result => {
-                        if (this.cancelled) {
-                            return;
-                        }
-
-                        this.callbacks.onProcessed(result.text, result.requireMoreInput,
-                            result.sessionId, result.directives);
-
-                        this.backends.tts.synthesize({
-                            text: result.text
-                        })
-                            .then(result => {
-                                if (this.cancelled) {
-                                    return;
-                                }
-
-                                this.callbacks.onSynthesized(result.format, result.voiceOutput);
-
-                                this.finish();
-                            })
-                            .catch(e => {
-                                this.logger.error(`Failed to synthesize: ${e}`);
-                            });
-                    })
-                    .catch(e => {
-                        this.logger.error(`Failed to process: ${e}`);
-                    });
+                this.process(requestText, audioMetadata, false);
             })
             .catch(e => logger.error(`Failed to finish audio metadata session: ${e}`))
+    }
+
+    handleExternalEvent(text: string): void {
+        this.process(text, {}, true);
     }
 
     private onSttTranscribed(result: STTChunkTranscribeResult): void {
         if (this.cancelled || this.finished) {
             return;
         }
-        if (result.endOfUtt) {
-            this.finalTranscribedChunk = result;
-        }
         this.callbacks.onTranscribed(result.text);
         if (result.endOfUtt) {
             this.handleVoiceInputEnd();
         }
     }
+}
+
+interface ClientEventData {
+    messageId: string;
+    requestId: string;
+    sequenceNumber: any;
 }
 
 class UniProxyConnection {
@@ -266,6 +281,9 @@ class UniProxyConnection {
         if (clientMessage.Event) {
             this.logger.debug(`Received event: ${JSON.stringify(Object.keys(clientMessage.Event))}`);
             this.logger.debug(JSON.stringify(clientMessage.Event, undefined, 4))
+            if (clientMessage.Event.TextInput) {
+                await this.handleTextInputEvent(clientMessage);
+            }
             if (clientMessage.Event.VoiceInput) {
                 await this.handleVoiceInputEvent(clientMessage);
             }
@@ -302,13 +320,12 @@ class UniProxyConnection {
         });
     }
 
-    private async handleVoiceInputEvent(clientMessage: any): Promise<void> {
+    private recreateClientProcessingSession(event: ClientEventData): void {
         if (this.currentProcessingSession) {
             this.currentProcessingSession.cancel();
             this.currentProcessingSession = null;
         }
 
-        this.currentProcessingSessionInputStreamId = parseInt(clientMessage.Event.Header.StreamId);
         this.currentProcessingSession = new ClientProcessingSession(this.backends, {
             onStarted: () => {
                 logger.info("Started");
@@ -317,7 +334,7 @@ class UniProxyConnection {
                     Event: {
                         Header: {
                             MessageId: randomUUID(),
-                            RefMessageId: clientMessage.Event.Header.MessageId
+                            RefMessageId: event.messageId
                         },
                         InputStartAck: {
                             RequestStartTime: Date.now() * 1000
@@ -333,7 +350,7 @@ class UniProxyConnection {
                     Event: {
                         Header: {
                             MessageId: randomUUID(),
-                            RefMessageId: clientMessage.Event.Header.MessageId
+                            RefMessageId: event.messageId
                         },
                         AsrResult: {
                             EndOfUtt: false,
@@ -361,7 +378,7 @@ class UniProxyConnection {
                     Event: {
                         Header: {
                             MessageId: randomUUID(),
-                            RefMessageId: clientMessage.Event.Header.MessageId
+                            RefMessageId: event.messageId
                         },
                         AsrResult: {
                             EndOfUtt: true,
@@ -394,12 +411,12 @@ class UniProxyConnection {
                     Event: {
                         Header: {
                             MessageId: randomUUID(),
-                            RefMessageId: clientMessage.Event.Header.MessageId
+                            RefMessageId: event.messageId
                         },
                         AliceResponse: {
                             Header: {
-                                RequestId: clientMessage.Event.VoiceInput.Header.RequestId,
-                                SequenceNumber: clientMessage.Event.VoiceInput.Header.SequenceNumber,
+                                RequestId: event.requestId,
+                                SequenceNumber: event.sequenceNumber,
                                 ResponseId: randomUUID(),
                                 DialogId: randomUUID()
                             },
@@ -468,7 +485,7 @@ class UniProxyConnection {
                     Event: {
                         Header: {
                             MessageId: randomUUID(),
-                            RefMessageId: clientMessage.Event.Header.MessageId,
+                            RefMessageId: event.messageId,
                             StreamId: this.currentOutputAudioStreamId
                         },
                         TtsSpeak: {
@@ -501,7 +518,28 @@ class UniProxyConnection {
                 this.currentProcessingSession = null;
             }
         }, this.activeProcessingSessionId);
-        this.currentProcessingSession.startVoiceInput({
+    }
+
+    private async handleTextInputEvent(clientMessage: any): Promise<void> {
+        this.recreateClientProcessingSession({
+            messageId: clientMessage.Event.Header.MessageId,
+            requestId: clientMessage.Event.TextInput.Header.RequestId,
+            sequenceNumber: clientMessage.Event.TextInput.Header.SequenceNumber
+        });
+
+        logger.debug(JSON.stringify(clientMessage.Event.TextInput.Request.Event, undefined, 4));
+        this.currentProcessingSession?.handleExternalEvent("unknown event happened");
+    }
+
+    private async handleVoiceInputEvent(clientMessage: any): Promise<void> {
+        this.recreateClientProcessingSession({
+            messageId: clientMessage.Event.Header.MessageId,
+            requestId: clientMessage.Event.VoiceInput.Header.RequestId,
+            sequenceNumber: clientMessage.Event.VoiceInput.Header.SequenceNumber
+        });
+
+        this.currentProcessingSessionInputStreamId = parseInt(clientMessage.Event.Header.StreamId);
+        this.currentProcessingSession?.startVoiceInput({
             format: clientMessage.Event.VoiceInput.Format
         });
     }
