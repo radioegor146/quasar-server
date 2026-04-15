@@ -223,7 +223,7 @@ class UniProxyConnection {
     }
 
     private async handleMessage(message: RawData, isBinary: boolean): Promise<void> {
-        const simplifiedMessage = Array.isArray(message) ? Buffer.concat(message) : Buffer.from(message);
+        const simplifiedMessage = Array.isArray(message) ? Buffer.concat(message) : Buffer.from(message as ArrayBuffer);
         if (isBinary) {
             await this.handleBinaryMessage(simplifiedMessage);
         } else {
@@ -265,6 +265,7 @@ class UniProxyConnection {
         }
         if (clientMessage.Event) {
             this.logger.debug(`Received event: ${JSON.stringify(Object.keys(clientMessage.Event))}`);
+            this.logger.debug(JSON.stringify(clientMessage.Event, undefined, 4))
             if (clientMessage.Event.VoiceInput) {
                 await this.handleVoiceInputEvent(clientMessage);
             }

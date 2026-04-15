@@ -24,7 +24,7 @@ class GigaAMSTTSession extends STTBackendSession {
             });
         })
         webSocket.on("message", (message, isBinary) => {
-            const simplifiedMessage = Array.isArray(message) ? Buffer.concat(message) : Buffer.from(message);
+            const simplifiedMessage = Array.isArray(message) ? Buffer.concat(message) : Buffer.from(message as ArrayBuffer);
             const response = JSON.parse(simplifiedMessage.toString("utf8")) as GigaAMMessage;
             this.chunkTranscribed({
                 endOfUtt: response.end_of_utt,
