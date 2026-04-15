@@ -538,6 +538,8 @@ class UniProxyConnection {
             logger.debug(JSON.stringify(payload, undefined, 4));
             if (payload?.typed_semantic_frame?.music_play_semantic_frame) {
                 this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
+            } else if (payload?.typed_semantic_frame?.external_event_semantic_frame) {
+                this.currentProcessingSession?.handleExternalEvent(payload.typed_semantic_frame.external_event_semantic_frame.event);
             } else {
                 logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
             }
