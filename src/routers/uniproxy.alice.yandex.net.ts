@@ -195,6 +195,31 @@ class ClientProcessingSession {
         this.process(text, {}, true);
     }
 
+    handleRawSpeak(text: string): void {
+        if (this.cancelled) {
+            return;
+        }
+
+        this.callbacks.onProcessed(text, false,
+            this.processingBackendSessionId ?? randomUUID(), []);
+
+        this.backends.tts.synthesize({
+            text: text
+        })
+            .then(result => {
+                if (this.cancelled) {
+                    return;
+                }
+
+                this.callbacks.onSynthesized(result.format, result.voiceOutput);
+
+                this.finish();
+            })
+            .catch(e => {
+                this.logger.error(`Failed to synthesize: ${e}`);
+            });
+    }
+
     handleSessionClose(): void {
 
     }
@@ -540,6 +565,8 @@ class UniProxyConnection {
                 this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
             } else if (payload?.typed_semantic_frame?.external_event_semantic_frame) {
                 this.currentProcessingSession?.handleExternalEvent(payload.typed_semantic_frame.external_event_semantic_frame.event);
+            } else if (payload?.typed_semantic_frame?.raw_external_event_semantic_frame) {
+                this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event);
             } else {
                 logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
             }
@@ -624,6 +651,49 @@ class UniProxyConnection {
         streamIdDataView.setUint32(0, streamId, false);
         const audioDataMessage = Buffer.concat([streamIdBuffer, audioData]);
         await this.sendRawData(audioDataMessage, true);
+    }
+
+    async pushRaw(eventText: string): Promise<void> {
+        await this.sendServerMessage({
+            Event: {
+                Header: {
+                    MessageId: randomUUID(),
+                    Ack: Date.now().toFixed(0)
+                },
+                Push: {
+                    PushIds: [
+                        randomUUID()
+                    ],
+                    DeduplicationPushId: randomUUID(),
+                    Directives: [
+                        {
+                            Type: "server_action",
+                            Name: "@@mm_semantic_frame",
+                            Payload: {
+                                fields: {
+                                    typed_semantic_frame: {
+                                        structValue: {
+                                            fields: {
+                                                raw_external_event_semantic_frame: {
+                                                    structValue: {
+                                                        fields: {
+                                                            event: {
+                                                                stringValue: eventText
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    AnalyticsMetaInfo: {}
+                }
+            }
+        });
     }
 
     async push(eventText: string): Promise<void> {

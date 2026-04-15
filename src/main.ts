@@ -85,6 +85,14 @@ apiApp.post('/push', (request, response) => {
     response.status(200).end();
 });
 
+apiApp.post('/push/raw', (request, response) => {
+    const requestData = pushRequestType.parse(request.body);
+    for (const connection of uniProxyRouter.connections) {
+        connection.pushRaw(requestData.eventText).catch(error => logger.warn(`Failed to push raw event to UniProxy connection: ${error}`));
+    }
+    response.status(200).end();
+});
+
 app.use((req, res) => {
     logger.debug(`Got unknown request: ${req.method} ${req.url}`);
     res.status(500).end();
