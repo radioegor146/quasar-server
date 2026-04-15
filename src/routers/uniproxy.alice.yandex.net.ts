@@ -536,7 +536,14 @@ class UniProxyConnection {
         if (event.Type === "server_action") {
             const payload = decodeProtobufStruct(event.Payload);
             logger.debug(JSON.stringify(payload, undefined, 4));
-            this.currentProcessingSession?.handleExternalEvent("unknown event happened");
+            if (payload?.typed_semantic_frame?.music_play_semantic_frame) {
+                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
+            } else {
+                logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
+            }
+        } else {
+            logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
+            this.currentProcessingSession?.finish();
         }
     }
 
