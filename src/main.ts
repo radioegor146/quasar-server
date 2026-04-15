@@ -9,6 +9,7 @@ import {OpenAITTSBackend} from "./backend/tts/openai";
 import {BasicProcessorBackend} from "./backend/processors/basic";
 import {BufferedAudioMetadataBackend} from "./backend/audio-metadata/buffered";
 import z from "zod";
+import bodyParser from "body-parser";
 
 dotenv.config({
     path: ".env.local"
@@ -46,6 +47,8 @@ const server = app.listen(PORT, e => {
 
 
 const apiApp = express();
+
+apiApp.use(bodyParser.json());
 
 const apiServer = apiApp.listen(API_PORT, e => {
     if (e) {
