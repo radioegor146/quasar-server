@@ -18,6 +18,7 @@ dotenv.config();
 const logger = getLogger();
 
 const PORT = parseInt(process.env.PORT ?? "31115");
+const API_PORT = parseInt(process.env.API_PORT ?? "31116");
 
 const STT_GIGAAM_URL = process.env.STT_GIGAAM_URL ?? "ws://10.0.3.137:8080";
 
@@ -36,10 +37,21 @@ const app = express();
 
 const server = app.listen(PORT, e => {
     if (e) {
-        logger.error(`Failed to start on :${PORT}: ${e}`);
+        logger.error(`Quasar failed to start on :${PORT}: ${e}`);
         return;
     }
-    logger.info(`Started on :${PORT}`);
+    logger.info(`Started quasar on :${PORT}`);
+});
+
+
+const apiApp = express();
+
+const apiServer = apiApp.listen(PORT, e => {
+    if (e) {
+        logger.error(`API failed to start on :${PORT}: ${e}`);
+        return;
+    }
+    logger.info(`Started API on :${PORT}`);
 });
 
 registerQuasarYandexNetRouter(app);
