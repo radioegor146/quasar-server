@@ -79,6 +79,7 @@ apiApp.post('/push', (request, response) => {
     for (const connection of uniProxyRouter.connections) {
         connection.push(requestData.eventText).catch(error => logger.warn(`Failed to push event to UniProxy connection: ${error}`));
     }
+    response.status(200).end();
 });
 
 app.use((req, res) => {

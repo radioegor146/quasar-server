@@ -626,30 +626,30 @@ class UniProxyConnection {
 
     async push(eventText: string): Promise<void> {
         await this.sendServerMessage({
-            "Event": {
-                "Header": {
-                    "MessageId": randomUUID(),
-                    "Ack": Date.now().toFixed(0)
+            Event: {
+                Header: {
+                    MessageId: randomUUID(),
+                    Ack: Date.now().toFixed(0)
                 },
-                "Push": {
-                    "PushIds": [
+                Push: {
+                    PushIds: [
                         randomUUID()
                     ],
-                    "DeduplicationPushId": randomUUID(),
-                    "Directives": [
+                    DeduplicationPushId: randomUUID(),
+                    Directives: [
                         {
-                            "Type": "server_action",
-                            "Name": "@@mm_semantic_frame",
-                            "Payload": {
-                                "fields": {
-                                    "typed_semantic_frame": {
-                                        "structValue": {
-                                            "fields": {
-                                                "external_event_semantic_frame": {
-                                                    "structValue": {
-                                                        "fields": {
-                                                            "event": {
-                                                                "stringValue": eventText
+                            Type: "server_action",
+                            Name: "@@mm_semantic_frame",
+                            Payload: {
+                                fields: {
+                                    typed_semantic_frame: {
+                                        structValue: {
+                                            fields: {
+                                                external_event_semantic_frame: {
+                                                    structValue: {
+                                                        fields: {
+                                                            event: {
+                                                                stringValue: eventText
                                                             }
                                                         }
                                                     }
@@ -661,7 +661,7 @@ class UniProxyConnection {
                             }
                         }
                     ],
-                    "AnalyticsMetaInfo": {}
+                    AnalyticsMetaInfo: {}
                 }
             }
         });
