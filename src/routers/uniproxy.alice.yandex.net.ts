@@ -16,6 +16,7 @@ import {
     ProcessorRequestSource
 } from "../backend/backend";
 import {AliceDirective, convertToAliceResponseDirective} from "./alice/directives";
+import { decodeProtobufStruct } from "../protobuf";
 
 const logger = getLogger();
 
@@ -194,6 +195,10 @@ class ClientProcessingSession {
         this.process(text, {}, true);
     }
 
+    handleSessionClose(): void {
+
+    }
+
     private onSttTranscribed(result: STTChunkTranscribeResult): void {
         if (this.cancelled || this.finished) {
             return;
@@ -280,7 +285,6 @@ class UniProxyConnection {
         }
         if (clientMessage.Event) {
             this.logger.debug(`Received event: ${JSON.stringify(Object.keys(clientMessage.Event))}`);
-            this.logger.debug(JSON.stringify(clientMessage.Event, undefined, 4))
             if (clientMessage.Event.TextInput) {
                 await this.handleTextInputEvent(clientMessage);
             }
@@ -527,8 +531,13 @@ class UniProxyConnection {
             sequenceNumber: clientMessage.Event.TextInput.Header.SequenceNumber
         });
 
-        logger.debug(JSON.stringify(clientMessage.Event.TextInput.Request.Event, undefined, 4));
-        this.currentProcessingSession?.handleExternalEvent("unknown event happened");
+        const event = clientMessage.Event.TextInput.Request.Event;
+
+        if (event.Type === "server_action") {
+            const payload = decodeProtobufStruct(event.Payload);
+            logger.debug(JSON.stringify(payload, undefined, 4));
+            this.currentProcessingSession?.handleExternalEvent("unknown event happened");
+        }
     }
 
     private async handleVoiceInputEvent(clientMessage: any): Promise<void> {
