@@ -46,12 +46,12 @@ const server = app.listen(PORT, e => {
 
 const apiApp = express();
 
-const apiServer = apiApp.listen(PORT, e => {
+const apiServer = apiApp.listen(API_PORT, e => {
     if (e) {
-        logger.error(`API failed to start on :${PORT}: ${e}`);
+        logger.error(`API failed to start on :${API_PORT}: ${e}`);
         return;
     }
-    logger.info(`Started API on :${PORT}`);
+    logger.info(`Started API on :${API_PORT}`);
 });
 
 registerQuasarYandexNetRouter(app);

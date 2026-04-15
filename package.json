@@ -18,6 +18,7 @@
     "express": "^5.1.0",
     "openai": "^5.8.2",
     "protobufjs": "^7.5.3",
+    "quasar-server": "link:",
     "tslog": "^4.9.3",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
