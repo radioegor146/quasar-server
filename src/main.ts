@@ -8,6 +8,7 @@ import {GigaAMSTTBackend} from "./backend/stt/gigaam";
 import {OpenAITTSBackend} from "./backend/tts/openai";
 import {BasicProcessorBackend} from "./backend/processors/basic";
 import {BufferedAudioMetadataBackend} from "./backend/audio-metadata/buffered";
+import z from "zod";
 
 dotenv.config({
     path: ".env.local"
@@ -55,7 +56,7 @@ const apiServer = apiApp.listen(API_PORT, e => {
 });
 
 registerQuasarYandexNetRouter(app);
-registerUniproxyAliceYandexNetRouter({
+const uniProxyRouter = registerUniproxyAliceYandexNetRouter({
     stt: new GigaAMSTTBackend(STT_GIGAAM_URL),
     processor: new BasicProcessorBackend(PROCESSOR_BASIC_URL),
     tts: new OpenAITTSBackend(new OpenAI({
@@ -68,6 +69,17 @@ registerUniproxyAliceYandexNetRouter({
     }),
     audioMetadata: new BufferedAudioMetadataBackend(AUDIO_METADATA_URLS)
 }, app, server);
+
+const pushRequestType = z.object({
+    eventText: z.string()
+})
+
+apiApp.post('/push', (request, response) => {
+    const requestData = pushRequestType.parse(request.body);
+    for (const connection of uniProxyRouter.connections) {
+        connection.push(requestData.eventText).catch(error => logger.warn(`Failed to push event to UniProxy connection: ${error}`));
+    }
+});
 
 app.use((req, res) => {
     logger.debug(`Got unknown request: ${req.method} ${req.url}`);

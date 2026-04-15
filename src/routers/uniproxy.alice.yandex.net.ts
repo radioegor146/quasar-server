@@ -623,9 +623,56 @@ class UniProxyConnection {
         const audioDataMessage = Buffer.concat([streamIdBuffer, audioData]);
         await this.sendRawData(audioDataMessage, true);
     }
+
+    async push(eventText: string): Promise<void> {
+        await this.sendServerMessage({
+            "Event": {
+                "Header": {
+                    "MessageId": randomUUID(),
+                    "Ack": Date.now().toFixed(0)
+                },
+                "Push": {
+                    "PushIds": [
+                        randomUUID()
+                    ],
+                    "DeduplicationPushId": randomUUID(),
+                    "Directives": [
+                        {
+                            "Type": "server_action",
+                            "Name": "@@mm_semantic_frame",
+                            "Payload": {
+                                "fields": {
+                                    "typed_semantic_frame": {
+                                        "structValue": {
+                                            "fields": {
+                                                "external_event_semantic_frame": {
+                                                    "structValue": {
+                                                        "fields": {
+                                                            "event": {
+                                                                "stringValue": eventText
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "AnalyticsMetaInfo": {}
+                }
+            }
+        });
+    }
 }
 
-export function registerUniproxyAliceYandexNetRouter(backends: Backends, app: Application, server: Server): void {
+interface UniProxyRouter {
+    connections: Set<UniProxyConnection>
+}
+
+export function registerUniproxyAliceYandexNetRouter(backends: Backends, app: Application, server: Server): UniProxyRouter {
     const wsServer = new WSServer({noServer: true});
 
     server.on("upgrade", (req, socket, head) => {
@@ -636,9 +683,24 @@ export function registerUniproxyAliceYandexNetRouter(backends: Backends, app: Ap
         }
     });
 
+    const router: UniProxyRouter = {
+        connections: new Set()
+    };
+
     wsServer.on("connection", (websocket, request) => {
         logger.debug("Got WebSocket connection");
 
-        new UniProxyConnection(websocket, backends);
+        const connection = new UniProxyConnection(websocket, backends);
+        websocket.on('close', () => {
+            router.connections.delete(connection);
+            logger.warn('UniProxy WebSocket closed')
+        });
+        websocket.on('error', e => {
+            router.connections.delete(connection);
+            logger.warn(`UniProxy WebSocket error: ${e}`)
+        });
+        router.connections.add(connection);
     });
+
+    return router;
 }
