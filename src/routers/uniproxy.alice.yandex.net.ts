@@ -228,6 +228,9 @@ class ClientProcessingSession {
         if (this.cancelled || this.finished) {
             return;
         }
+        if (result.endOfUtt) {
+            this.finalTranscribedChunk = result;
+        }
         this.callbacks.onTranscribed(result.text);
         if (result.endOfUtt) {
             this.handleVoiceInputEnd();
