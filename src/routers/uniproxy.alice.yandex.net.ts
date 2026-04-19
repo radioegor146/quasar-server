@@ -180,7 +180,7 @@ class ClientProcessingSession {
         const willProcess = requestText.length > 0;
         this.callbacks.onFullyTranscribed(requestText, willProcess);
         if (!willProcess) {
-            audioMetadataPromise.catch(e => logger.warn(`Failed to finish audio metadata session: ${e}`));
+            audioMetadataPromise.catch(e => this.logger.warn(`Failed to finish audio metadata session: ${e}`));
             this.finish();
             return;
         }
@@ -188,7 +188,7 @@ class ClientProcessingSession {
             .then(audioMetadata => {
                 this.process(requestText, audioMetadata, false);
             })
-            .catch(e => logger.error(`Failed to finish audio metadata session: ${e}`))
+            .catch(e => this.logger.error(`Failed to finish audio metadata session: ${e}`))
     }
 
     handleExternalEvent(text: string): void {
@@ -258,7 +258,6 @@ class UniProxyConnection {
         this.webSocket.on("message", (message, isBinary) => {
             this.handleMessage(message, isBinary).catch(e => {
                 this.logger.error(`Failed to handle message: ${e}`);
-                console.error(e);
             });
         });
     }
@@ -361,7 +360,7 @@ class UniProxyConnection {
 
         this.currentProcessingSession = new ClientProcessingSession(this.backends, {
             onStarted: () => {
-                logger.info("Started");
+                this.logger.info("Started");
 
                 this.sendServerMessage({
                     Event: {
@@ -377,7 +376,7 @@ class UniProxyConnection {
                 });
             },
             onTranscribed: text => {
-                logger.info(`Transcribed: '${text}'`);
+                this.logger.info(`Transcribed: '${text}'`);
 
                 this.sendServerMessage({
                     Event: {
@@ -571,10 +570,10 @@ class UniProxyConnection {
             } else if (payload?.typed_semantic_frame?.raw_external_event_semantic_frame) {
                 this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event);
             } else {
-                logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
+                this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
             }
         } else {
-            logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
+            this.logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
             this.currentProcessingSession?.finish();
         }
     }

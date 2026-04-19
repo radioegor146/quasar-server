@@ -12,7 +12,7 @@ function decodeProtobufFieldValue(value: any): any {
         return !!value.boolValue;
     }
     if ("listValue" in value) {
-        return value.values.map((item: any) => decodeProtobufFieldValue(item))
+        return value.listValue.map((item: any) => decodeProtobufFieldValue(item))
     }
     if ("numberValue" in value) {
         return value.numberValue;
