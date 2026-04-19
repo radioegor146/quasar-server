@@ -258,6 +258,7 @@ class UniProxyConnection {
         this.webSocket.on("message", (message, isBinary) => {
             this.handleMessage(message, isBinary).catch(e => {
                 this.logger.error(`Failed to handle message: ${e}`);
+                console.error(e);
             });
         });
     }
