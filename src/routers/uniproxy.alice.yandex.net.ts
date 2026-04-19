@@ -561,10 +561,8 @@ class UniProxyConnection {
 
         const event = clientMessage.Event.TextInput.Request.Event;
 
-        if (event.Type === "server_action") {
-            logger.debug(JSON.stringify(event))
+        if (event.Type === "server_action" && event.Payload) {
             const payload = decodeProtobufStruct(event.Payload);
-            logger.debug(JSON.stringify(payload, undefined, 4));
             if (payload?.typed_semantic_frame?.music_play_semantic_frame) {
                 this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
             } else if (payload?.typed_semantic_frame?.external_event_semantic_frame) {
