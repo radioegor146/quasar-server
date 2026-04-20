@@ -572,6 +572,8 @@ class UniProxyConnection {
             } else {
                 this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
             }
+        } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
+            this.logger.info(event.PayloadRaw)
         } else {
             this.logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
             this.currentProcessingSession?.finish();
