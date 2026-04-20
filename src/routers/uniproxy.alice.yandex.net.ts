@@ -33,6 +33,9 @@ const TClientMessageProto = loadProto(
 const TServerMessageProto = loadProto(
     "alice/protos/api/alicekit/protocol/server/server_message.proto")
     .lookupType("NAlice.NAliceApi.TServerMessage");
+const TSemanticFrameRequestData = loadProto(
+    "alice/protos/api/alicekit/scenarios/frames/frame.proto")
+    .lookupType("NAlice.NAliceApi.TSemanticFrameRequestData")
 
 interface VoiceInputStartParams {
     format: AudioFormat;
@@ -573,7 +576,13 @@ class UniProxyConnection {
                 this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
             }
         } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
-            this.logger.info(event.PayloadRaw)
+            const rawPayload = Buffer.from(event.PayloadRaw, 'base64')
+            const decoded = TSemanticFrameRequestData.decode(rawPayload).toJSON()
+            if (decoded?.TypedSemanticFrame?.MusicPlaySemanticFrame) {
+                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
+            } else {
+                this.logger.info(`Received unknown TextInput semantic frame: ${JSON.stringify(decoded)}`)
+            }
         } else {
             this.logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
             this.currentProcessingSession?.finish();
