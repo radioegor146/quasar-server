@@ -586,13 +586,16 @@ class UniProxyConnection {
                                     type: 'processIncomingCall'
                                 }
                             ]);
+                            break;
                         }
                         default: {
                             this.logger.info(`Received unknown TextInput server_action with serialized typed callback: ${JSON.stringify(innerStruct)} ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
+                            this.currentProcessingSession?.finish();
                         }
                     }
                 } else {
                     this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
+                    this.currentProcessingSession?.finish();
                 }
             }
         } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
@@ -602,6 +605,7 @@ class UniProxyConnection {
                 this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker", []);
             } else {
                 this.logger.info(`Received unknown TextInput semantic frame: ${JSON.stringify(decoded)} ${JSON.stringify(event)}`)
+                this.currentProcessingSession?.finish();
             }
         } else {
             this.logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
@@ -674,6 +678,7 @@ class UniProxyConnection {
     }
 
     private async sendServerMessage(serverMessage: any): Promise<void> {
+        this.logger.debug(`Sending message: ${JSON.stringify(serverMessage, undefined, 4)}`)
         const encoded = TServerMessageProto.encode(serverMessage).finish();
         await this.sendRawData(Buffer.concat([Buffer.from("AAPI", "ascii"), encoded]), true);
     }
