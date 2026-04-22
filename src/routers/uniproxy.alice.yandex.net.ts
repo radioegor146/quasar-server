@@ -587,9 +587,13 @@ class UniProxyConnection {
                                 }
                             ]);
                         }
+                        default: {
+                            this.logger.info(`Received unknown TextInput server_action with serialized typed callback: ${JSON.stringify(innerStruct)} ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
+                        }
                     }
+                } else {
+                    this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
                 }
-                this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
             }
         } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
             const rawPayload = Buffer.from(event.PayloadRaw, 'base64')
