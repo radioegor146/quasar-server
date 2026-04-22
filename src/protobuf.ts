@@ -1,5 +1,6 @@
 function decodeProtobufFieldValue(value: any): any {
     if ("structValue" in value) {
+        console.info(value)
         return decodeProtobufStruct(value.structValue);
     }
     if ("stringValue" in value) {
