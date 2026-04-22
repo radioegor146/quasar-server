@@ -589,14 +589,17 @@ class UniProxyConnection {
                         case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
                             // now let's read environment!
                             const environmentState = TEnvironmentState.decode(Buffer.from(clientMessage.Event.TextInput.Request.EnvironmentStateRaw, 'base64')).toJSON()
-                            const phoneCapability = environmentState
-                            this.logger.info(JSON.stringify(phoneCapability, undefined, 4))
-                            this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
-                                {
-                                    type: 'processIncomingCall',
-                                    callId: randomUUID()
-                                }
-                            ]);
+                            const phoneCapabilityRaw = environmentState.Endpoints[0].Capabilities.find((item: any) => item.type_url === 'type.googleapis.com/NAlice.TPhoneCallsCapability')?.value
+                            if (phoneCapabilityRaw) {
+                                const phoneCapability = TPhoneCallsCapability.decode(Buffer.from(phoneCapabilityRaw, 'base64')).toJSON()
+                                this.logger.info(JSON.stringify(phoneCapability, undefined, 4))
+                                this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
+                                    {
+                                        type: 'processIncomingCall',
+                                        callId: randomUUID()
+                                    }
+                                ]);
+                            }
                             break;
                         }
                         default: {
