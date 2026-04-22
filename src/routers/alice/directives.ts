@@ -20,6 +20,7 @@ export interface SoundLouderDirective {
 
 export interface ProcessIncomingCallDirective {
     type: "processIncomingCall"
+    callId: string;
 }
 
 export type AliceDirective = SoundSetLevelDirective | SoundQuieterDirective | SoundLouderDirective | ProcessIncomingCallDirective;
@@ -65,7 +66,7 @@ export function convertToAliceResponseDirective(directive: AliceDirective): any 
                 Name: "phone_calls_process_incoming_call",
                 IsLedSilent: true,
                 PayloadRaw: Buffer.from(TProcessIncomingCallDirective.encode({
-                    CallId: randomUUID()
+                    CallId: directive.callId
                 }).finish()).toString('base64')
             }
         }
