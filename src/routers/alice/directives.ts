@@ -64,9 +64,9 @@ export function convertToAliceResponseDirective(directive: AliceDirective): any 
                 Type: "client_action",
                 Name: "phone_calls_process_incoming_call",
                 IsLedSilent: true,
-                PayloadRaw: TProcessIncomingCallDirective.encode({
+                PayloadRaw: Buffer.from(TProcessIncomingCallDirective.encode({
                     CallId: randomUUID()
-                }).finish()
+                }).finish()).toString('base64')
             }
         }
     }
