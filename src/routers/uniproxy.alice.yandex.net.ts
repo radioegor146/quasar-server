@@ -589,8 +589,8 @@ class UniProxyConnection {
                         case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
                             // now let's read environment!
                             const environmentState = TEnvironmentState.decode(Buffer.from(clientMessage.Event.TextInput.Request.EnvironmentStateRaw, 'base64')).toJSON()
-                            const phoneCapability = environmentState.Endpoints[0].AnyCapabilities
-                            this.logger.info(phoneCapability)
+                            const phoneCapability = environmentState
+                            this.logger.info(JSON.stringify(phoneCapability, undefined, 4))
                             this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
                                 {
                                     type: 'processIncomingCall',
