@@ -93,6 +93,13 @@ apiApp.post('/push/raw', (request, response) => {
     response.status(200).end();
 });
 
+apiApp.post('/debug/directive/raw', (request, response) => {
+    for (const connection of uniProxyRouter.connections) {
+        connection.pushRawDirective(request.body).catch(error => logger.warn(`Failed to push raw directive to UniProxy connection: ${error}`));
+    }
+    response.status(200).end();
+});
+
 app.use((req, res) => {
     logger.debug(`Got unknown request: ${req.method} ${req.url}`);
     res.status(500).end();

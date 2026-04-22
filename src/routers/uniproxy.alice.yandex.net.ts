@@ -666,7 +666,71 @@ class UniProxyConnection {
         await this.sendRawData(audioDataMessage, true);
     }
 
+    async pushRawDirective(directive: unknown): Promise<void> {
+        await this.sendServerMessage({
+            Event: {
+                Header: {
+                    MessageId: randomUUID(),
+                    Ack: Date.now().toFixed(0)
+                },
+                Push: {
+                    PushIds: [
+                        randomUUID()
+                    ],
+                    DeduplicationPushId: randomUUID(),
+                    Directives: [
+                        directive
+                    ],
+                    AnalyticsMetaInfo: {}
+                }
+            }
+        });
+    }
+
     async pushRaw(eventText: string): Promise<void> {
+        await this.sendServerMessage({
+            Event: {
+                Header: {
+                    MessageId: randomUUID(),
+                    Ack: Date.now().toFixed(0)
+                },
+                Push: {
+                    PushIds: [
+                        randomUUID()
+                    ],
+                    DeduplicationPushId: randomUUID(),
+                    Directives: [
+                        {
+                            Type: "server_action",
+                            Name: "@@mm_semantic_frame",
+                            Payload: {
+                                fields: {
+                                    typed_semantic_frame: {
+                                        structValue: {
+                                            fields: {
+                                                raw_external_event_semantic_frame: {
+                                                    structValue: {
+                                                        fields: {
+                                                            event: {
+                                                                stringValue: eventText
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    AnalyticsMetaInfo: {}
+                }
+            }
+        });
+    }
+
+    async rawDirectivePush(eventText: string): Promise<void> {
         await this.sendServerMessage({
             Event: {
                 Header: {
