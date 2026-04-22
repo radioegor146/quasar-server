@@ -1,3 +1,10 @@
+import { randomUUID } from "crypto";
+import { loadProto } from "../../proto";
+
+const TProcessIncomingCallDirective = loadProto(
+    "alice/protos/endpoint/capabilities/phone_calls/capability.proto")
+    .lookupType("NAlice.TPhoneCallsCapability.TProcessIncomingCallDirective")
+
 export interface SoundSetLevelDirective {
     type: "soundSetLevel";
     newLevel: number;
@@ -11,7 +18,11 @@ export interface SoundLouderDirective {
     type: "soundLouder";
 }
 
-export type AliceDirective = SoundSetLevelDirective | SoundQuieterDirective | SoundLouderDirective;
+export interface ProcessIncomingCallDirective {
+    type: "processIncomingCall"
+}
+
+export type AliceDirective = SoundSetLevelDirective | SoundQuieterDirective | SoundLouderDirective | ProcessIncomingCallDirective;
 
 export function convertToAliceResponseDirective(directive: AliceDirective): any {
     switch (directive.type) {
@@ -48,5 +59,15 @@ export function convertToAliceResponseDirective(directive: AliceDirective): any 
                 Payload: {},
                 IsLedSilent: true
             };
+        case "processIncomingCall": {
+            return {
+                Type: "client_action",
+                Name: "phone_calls_process_incoming_call",
+                IsLedSilent: true,
+                PayloadRaw: TProcessIncomingCallDirective.encode({
+                    CallId: randomUUID()
+                }).finish()
+            }
+        }
     }
 }

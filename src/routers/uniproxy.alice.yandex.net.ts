@@ -36,6 +36,9 @@ const TServerMessageProto = loadProto(
 const TSemanticFrameRequestData = loadProto(
     "alice/protos/api/alicekit/scenarios/frames/frame.proto")
     .lookupType("NAlice.NAliceApi.TSemanticFrameRequestData")
+const TStructSerialization = loadProto(
+    "alice/protos/api/typed_callbacks/typed_callback_request.proto")
+    .lookupType("NAlice.TTypedCallbackRequest.TStructSerialization")
 
 interface VoiceInputStartParams {
     format: AudioFormat;
@@ -129,7 +132,7 @@ class ClientProcessingSession {
         };
     }
 
-    private process(text: string, metadata: object, isExternalEvent: boolean): void {
+    private process(text: string, metadata: object, isExternalEvent: boolean, externalDirectives: AliceDirective[]): void {
         this.backends.processor.process({
             text: text,
             sessionId: this.processingBackendSessionId ?? undefined,
@@ -189,22 +192,22 @@ class ClientProcessingSession {
         }
         audioMetadataPromise
             .then(audioMetadata => {
-                this.process(requestText, audioMetadata, false);
+                this.process(requestText, audioMetadata, false, []);
             })
             .catch(e => this.logger.error(`Failed to finish audio metadata session: ${e}`))
     }
 
-    handleExternalEvent(text: string): void {
-        this.process(text, {}, true);
+    handleExternalEvent(text: string, externalDirectives: AliceDirective[]): void {
+        this.process(text, {}, true, externalDirectives);
     }
 
-    handleRawSpeak(text: string): void {
+    handleRawSpeak(text: string, externalDirectives: AliceDirective[]): void {
         if (this.cancelled) {
             return;
         }
 
         this.callbacks.onProcessed(text, false,
-            this.processingBackendSessionId ?? randomUUID(), []);
+            this.processingBackendSessionId ?? randomUUID(), externalDirectives);
 
         this.backends.tts.synthesize({
             text: text
@@ -568,19 +571,31 @@ class UniProxyConnection {
         if (event.Type === "server_action" && event.Payload) {
             const payload = decodeProtobufStruct(event.Payload);
             if (payload?.typed_semantic_frame?.music_play_semantic_frame) {
-                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
+                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker", []);
             } else if (payload?.typed_semantic_frame?.external_event_semantic_frame) {
-                this.currentProcessingSession?.handleExternalEvent(payload.typed_semantic_frame.external_event_semantic_frame.event);
+                this.currentProcessingSession?.handleExternalEvent(payload.typed_semantic_frame.external_event_semantic_frame.event, []);
             } else if (payload?.typed_semantic_frame?.raw_external_event_semantic_frame) {
-                this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event);
+                this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event, []);
             } else {
+                if (payload?.typed_callback_serialized) {
+                    const innerStruct = TStructSerialization.decode(Buffer.from(payload.typed_callback_serialized, 'base64')).toJSON()
+                    switch (innerStruct.TypedCallbackName) {
+                        case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
+                            this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
+                                {
+                                    type: 'processIncomingCall'
+                                }
+                            ]);
+                        }
+                    }
+                }
                 this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
             }
         } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
             const rawPayload = Buffer.from(event.PayloadRaw, 'base64')
             const decoded = TSemanticFrameRequestData.decode(rawPayload).toJSON()
             if (decoded?.TypedSemanticFrame?.MusicPlaySemanticFrame) {
-                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
+                this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker", []);
             } else {
                 this.logger.info(`Received unknown TextInput semantic frame: ${JSON.stringify(decoded)} ${JSON.stringify(event)}`)
             }
