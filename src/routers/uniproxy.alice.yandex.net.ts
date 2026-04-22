@@ -39,6 +39,12 @@ const TSemanticFrameRequestData = loadProto(
 const TStructSerialization = loadProto(
     "alice/protos/api/typed_callbacks/typed_callback_request.proto")
     .lookupType("NAlice.TTypedCallbackRequest.TStructSerialization")
+const TEnvironmentState = loadProto(
+    "alice/protos/api/alicekit/common/environment_state/environment_state.proto")
+    .lookupType("NAlice.NAliceApi.TEnvironmentState")
+const TPhoneCallsCapability = loadProto(
+    "alice/protos/endpoint/capabilities/phone_calls/capability.proto")
+    .lookupType('NAlice.TPhoneCallsCapability')
 
 interface VoiceInputStartParams {
     format: AudioFormat;
@@ -581,6 +587,10 @@ class UniProxyConnection {
                     const innerStruct = TStructSerialization.decode(Buffer.from(payload.typed_callback_serialized, 'base64')).toJSON()
                     switch (innerStruct.TypedCallbackName) {
                         case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
+                            // now let's read environment!
+                            const environmentState = TEnvironmentState.decode(Buffer.from(clientMessage.Event.TextInput.Request.EnvironmentState, 'base64')).toJSON()
+                            const phoneCapability = environmentState.Endpoints[0].AnyCapabilities
+                            this.logger.info(phoneCapability)
                             this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
                                 {
                                     type: 'processIncomingCall'
