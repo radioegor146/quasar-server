@@ -592,11 +592,10 @@ class UniProxyConnection {
                             const phoneCapabilityRaw = environmentState.Endpoints[0].Capabilities.find((item: any) => item.type_url === 'type.googleapis.com/NAlice.TPhoneCallsCapability')?.value
                             if (phoneCapabilityRaw) {
                                 const phoneCapability = TPhoneCallsCapability.decode(Buffer.from(phoneCapabilityRaw, 'base64')).toJSON()
-                                this.logger.info(JSON.stringify(phoneCapability, undefined, 4))
                                 this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
                                     {
                                         type: 'processIncomingCall',
-                                        callId: randomUUID()
+                                        callId: phoneCapability.State.IncomingCall.Id
                                     }
                                 ]);
                             }
@@ -692,7 +691,7 @@ class UniProxyConnection {
     }
 
     private async sendServerMessage(serverMessage: any): Promise<void> {
-        this.logger.debug(`Sending message: ${JSON.stringify(serverMessage, undefined, 4)}`)
+        // this.logger.debug(`Sending message: ${JSON.stringify(serverMessage, undefined, 4)}`)
         const encoded = TServerMessageProto.encode(serverMessage).finish();
         await this.sendRawData(Buffer.concat([Buffer.from("AAPI", "ascii"), encoded]), true);
     }
