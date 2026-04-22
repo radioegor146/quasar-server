@@ -574,7 +574,7 @@ class UniProxyConnection {
             } else if (payload?.typed_semantic_frame?.raw_external_event_semantic_frame) {
                 this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event);
             } else {
-                this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)}`)
+                this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
             }
         } else if (event.Type === "server_action" && event.Name === "@@mm_semantic_frame" && event.PayloadRaw) {
             const rawPayload = Buffer.from(event.PayloadRaw, 'base64')
@@ -582,7 +582,7 @@ class UniProxyConnection {
             if (decoded?.TypedSemanticFrame?.MusicPlaySemanticFrame) {
                 this.currentProcessingSession?.handleExternalEvent("play button was pressed on speaker");
             } else {
-                this.logger.info(`Received unknown TextInput semantic frame: ${JSON.stringify(decoded)}`)
+                this.logger.info(`Received unknown TextInput semantic frame: ${JSON.stringify(decoded)} ${JSON.stringify(event)}`)
             }
         } else {
             this.logger.info(`Received unknown TextInput: ${JSON.stringify(event)}`)
