@@ -1,6 +1,5 @@
 function decodeProtobufFieldValue(value: any): any {
     if ("structValue" in value) {
-        console.info(value)
         return decodeProtobufStruct(value.structValue);
     }
     if ("stringValue" in value) {
@@ -23,6 +22,9 @@ function decodeProtobufFieldValue(value: any): any {
 
 export function decodeProtobufStruct(value: any): any {
     const result: Record<string, any> = {};
+    if (!("fields" in value)) {
+        return result
+    }
     for (const [key, field] of Object.entries(value.fields)) {
         const value = decodeProtobufFieldValue(field);
         result[key] = value;
