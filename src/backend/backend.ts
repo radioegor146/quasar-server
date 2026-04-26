@@ -65,7 +65,12 @@ export interface ProcessorResponse {
     directives: AliceDirective[];
 }
 
+export interface ProcessorPrepareResponse {
+    sessionId: string;
+}
+
 export interface ProcessorBackend {
+    prepare(): Promise<ProcessorPrepareResponse | null>;
     process(request: ProcessorRequest): Promise<ProcessorResponse>;
 }
 

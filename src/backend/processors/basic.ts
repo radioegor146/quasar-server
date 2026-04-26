@@ -1,11 +1,23 @@
 import {getLogger} from "../../logger";
-import {ProcessorBackend, ProcessorRequest, ProcessorResponse} from "../backend";
+import {ProcessorBackend, ProcessorPrepareResponse, ProcessorRequest, ProcessorResponse} from "../backend";
 import {randomUUID} from "node:crypto";
 
 export class BasicProcessorBackend implements ProcessorBackend {
     private readonly logger = getLogger<BasicProcessorBackend>();
 
     constructor(private readonly url: string) {
+    }
+
+    async prepare(): Promise<ProcessorPrepareResponse | null> {
+        this.logger.info(`Preparing processor`)
+        const response = await (await fetch(this.url, {
+            method: "PATCH"
+        })).json()
+        this.logger.info(`Processor prepared: ${JSON.stringify(response, undefined, 4)}`)
+        if (!response.success) {
+            return null;
+        }
+        return response;
     }
 
     async process(request: ProcessorRequest): Promise<ProcessorResponse> {

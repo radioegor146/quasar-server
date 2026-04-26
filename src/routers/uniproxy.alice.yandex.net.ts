@@ -70,6 +70,7 @@ class ClientProcessingSession {
     private finished: boolean = false;
     private finalTranscribedChunk: STTChunkTranscribeResult | null = null;
     private stationMetadata: object = {};
+    private preparedSessionId: string | null = null;
 
     constructor(private readonly backends: Backends,
                 private readonly callbacks: ClientProcessingSessionCallbacks,
@@ -78,6 +79,13 @@ class ClientProcessingSession {
 
     startVoiceInput(params: VoiceInputStartParams): void {
         (async () => {
+            if (!this.processingBackendSessionId) {
+                this.backends.processor.prepare().then(result => {
+                    if (result) {
+                        this.preparedSessionId = result.sessionId
+                    }
+                })
+            }
             const [sttSession, audioMetadataSession] = await Promise.all([
                 this.backends.stt.startTranscribing({
                     format: params.format
@@ -141,7 +149,7 @@ class ClientProcessingSession {
     private process(text: string, metadata: object, isExternalEvent: boolean, externalDirectives: AliceDirective[]): void {
         this.backends.processor.process({
             text: text,
-            sessionId: this.processingBackendSessionId ?? undefined,
+            sessionId: this.processingBackendSessionId ?? (this.preparedSessionId ?? undefined),
             metadata: {
                 ...this.stationMetadata,
                 ...metadata
