@@ -584,27 +584,31 @@ class UniProxyConnection {
                 this.currentProcessingSession?.handleRawSpeak(payload.typed_semantic_frame.raw_external_event_semantic_frame.event, []);
             } else {
                 if (payload?.typed_callback_serialized) {
-                    const innerStruct = TStructSerialization.decode(Buffer.from(payload.typed_callback_serialized, 'base64')).toJSON()
-                    switch (innerStruct.TypedCallbackName) {
-                        case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
-                            // now let's read environment!
-                            const environmentState = TEnvironmentState.decode(Buffer.from(clientMessage.Event.TextInput.Request.EnvironmentStateRaw, 'base64')).toJSON()
-                            const phoneCapabilityRaw = environmentState.Endpoints[0].Capabilities.find((item: any) => item.type_url === 'type.googleapis.com/NAlice.TPhoneCallsCapability')?.value
-                            if (phoneCapabilityRaw) {
-                                const phoneCapability = TPhoneCallsCapability.decode(Buffer.from(phoneCapabilityRaw, 'base64')).toJSON()
-                                this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
-                                    {
-                                        type: 'processIncomingCall',
-                                        callId: phoneCapability.State.IncomingCall.Id
-                                    }
-                                ]);
+                    try {
+                        const innerStruct = TStructSerialization.decode(Buffer.from(payload.typed_callback_serialized, 'base64')).toJSON()
+                        switch (innerStruct.TypedCallbackName) {
+                            case 'type.googleapis.com/NAlice.NScenarios.NCalls.TIncomingCallReceivedTypedCallback': {
+                                // now let's read environment!
+                                const environmentState = TEnvironmentState.decode(Buffer.from(clientMessage.Event.TextInput.Request.EnvironmentStateRaw, 'base64')).toJSON()
+                                const phoneCapabilityRaw = environmentState.Endpoints[0].Capabilities.find((item: any) => item.type_url === 'type.googleapis.com/NAlice.TPhoneCallsCapability')?.value
+                                if (phoneCapabilityRaw) {
+                                    const phoneCapability = TPhoneCallsCapability.decode(Buffer.from(phoneCapabilityRaw, 'base64')).toJSON()
+                                    this.currentProcessingSession?.handleRawSpeak("кто-то звонит!", [
+                                        {
+                                            type: 'processIncomingCall',
+                                            callId: phoneCapability.State.IncomingCall.Id
+                                        }
+                                    ]);
+                                }
+                                break;
                             }
-                            break;
+                            default: {
+                                this.logger.info(`Received unknown TextInput server_action with serialized typed callback: ${JSON.stringify(innerStruct)} ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
+                                this.currentProcessingSession?.finish();
+                            }
                         }
-                        default: {
-                            this.logger.info(`Received unknown TextInput server_action with serialized typed callback: ${JSON.stringify(innerStruct)} ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
-                            this.currentProcessingSession?.finish();
-                        }
+                    } catch (e) {
+                        this.logger.info(`Received invalid TextInput server_action with serialized typed callback: ${JSON.stringify(payload)} ${JSON.stringify(event)}: ${e}`)
                     }
                 } else {
                     this.logger.info(`Received unknown TextInput server_action: ${JSON.stringify(payload)} ${JSON.stringify(event)}`)
