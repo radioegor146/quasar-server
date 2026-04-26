@@ -66,11 +66,11 @@ export interface ProcessorResponse {
 }
 
 export interface ProcessorPrepareRequest {
-    sessionId: string | null;
+    sessionId?: string;
 }
 
 export interface ProcessorPrepareResponse {
-    sessionId: string | null;
+    sessionId?: string;
 }
 
 export interface ProcessorBackend {

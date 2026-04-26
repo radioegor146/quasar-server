@@ -83,9 +83,9 @@ class ClientProcessingSession {
             let prepareResolve: (() => void) | null = null;
             const preparePromise = new Promise<void>((resolve) => prepareResolve = resolve)
             this.backends.processor.prepare({
-                sessionId: this.preparedSessionId
+                sessionId: this.preparedSessionId ?? undefined
             }).then(result => {
-                this.preparedSessionId = result.sessionId
+                this.preparedSessionId = result.sessionId ?? null
             }).catch(error => this.logger.warn(`Processor prepare failed: ${error}`)).finally(() => {
                 if (prepareResolve) {
                     prepareResolve()

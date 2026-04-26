@@ -17,7 +17,7 @@ export class BasicProcessorBackend implements ProcessorBackend {
         this.logger.info(`Processor prepared: ${JSON.stringify(response, undefined, 4)}`)
         if (!response.success) {
             return {
-                sessionId: null
+                sessionId: undefined
             };
         }
         return response;
