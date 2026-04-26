@@ -1,10 +1,10 @@
-import {ProcessorBackend, ProcessorPrepareResponse, ProcessorRequest, ProcessorResponse} from "../backend";
+import {ProcessorBackend, ProcessorPrepareRequest, ProcessorPrepareResponse, ProcessorRequest, ProcessorResponse} from "../backend";
 import {sleep} from "../../utils";
 import {randomUUID} from "node:crypto";
 
 export class DummyProcessorBackend implements ProcessorBackend {
-    async prepare(): Promise<ProcessorPrepareResponse | null> {
-        return null;
+    async prepare(request: ProcessorPrepareRequest): Promise<ProcessorPrepareResponse> {
+        return request;
     }
 
     async process(request: ProcessorRequest): Promise<ProcessorResponse> {

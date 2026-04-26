@@ -71,6 +71,7 @@ class ClientProcessingSession {
     private finalTranscribedChunk: STTChunkTranscribeResult | null = null;
     private stationMetadata: object = {};
     private preparedSessionId: string | null = null;
+    private preparePromise: Promise<void> | null = null;
 
     constructor(private readonly backends: Backends,
                 private readonly callbacks: ClientProcessingSessionCallbacks,
@@ -79,13 +80,17 @@ class ClientProcessingSession {
 
     startVoiceInput(params: VoiceInputStartParams): void {
         (async () => {
-            if (!this.processingBackendSessionId) {
-                this.backends.processor.prepare().then(result => {
-                    if (result) {
-                        this.preparedSessionId = result.sessionId
-                    }
-                })
-            }
+            let prepareResolve: (() => void) | null = null;
+            const preparePromise = new Promise<void>((resolve) => prepareResolve = resolve)
+            this.backends.processor.prepare({
+                sessionId: this.preparedSessionId
+            }).then(result => {
+                this.preparedSessionId = result.sessionId
+            }).catch(error => this.logger.warn(`Processor prepare failed: ${error}`)).finally(() => {
+                if (prepareResolve) {
+                    prepareResolve()
+                }
+            })
             const [sttSession, audioMetadataSession] = await Promise.all([
                 this.backends.stt.startTranscribing({
                     format: params.format
@@ -115,7 +120,6 @@ class ClientProcessingSession {
             return;
         }
         this.cancelled = true;
-        this.callbacks.onCancelled();
     }
 
     finish(): void {
@@ -147,42 +151,50 @@ class ClientProcessingSession {
     }
 
     private process(text: string, metadata: object, isExternalEvent: boolean, externalDirectives: AliceDirective[]): void {
-        this.backends.processor.process({
-            text: text,
-            sessionId: this.processingBackendSessionId ?? (this.preparedSessionId ?? undefined),
-            metadata: {
-                ...this.stationMetadata,
-                ...metadata
-            },
-            isExternalEvent
-        })
-            .then(result => {
-                if (this.cancelled) {
-                    return;
-                }
-
-                this.callbacks.onProcessed(result.text, result.requireMoreInput,
-                    result.sessionId, result.directives);
-
-                this.backends.tts.synthesize({
-                    text: result.text
-                })
-                    .then(result => {
-                        if (this.cancelled) {
-                            return;
-                        }
-
-                        this.callbacks.onSynthesized(result.format, result.voiceOutput);
-
-                        this.finish();
-                    })
-                    .catch(e => {
-                        this.logger.error(`Failed to synthesize: ${e}`);
-                    });
+        const postProcess = () => {
+            this.backends.processor.process({
+                text: text,
+                sessionId: this.processingBackendSessionId ?? (this.preparedSessionId ?? undefined),
+                metadata: {
+                    ...this.stationMetadata,
+                    ...metadata
+                },
+                isExternalEvent
             })
-            .catch(e => {
-                this.logger.error(`Failed to process: ${e}`);
-            });
+                .then(result => {
+                    if (this.cancelled) {
+                        return;
+                    }
+
+                    this.callbacks.onProcessed(result.text, result.requireMoreInput,
+                        result.sessionId, result.directives);
+
+                    this.backends.tts.synthesize({
+                        text: result.text
+                    })
+                        .then(result => {
+                            if (this.cancelled) {
+                                return;
+                            }
+
+                            this.callbacks.onSynthesized(result.format, result.voiceOutput);
+
+                            this.finish();
+                        })
+                        .catch(e => {
+                            this.logger.error(`Failed to synthesize: ${e}`);
+                        });
+                })
+                .catch(e => {
+                    this.logger.error(`Failed to process: ${e}`);
+                });
+        }
+
+        if (this.preparePromise) {
+            this.preparePromise.then(() => postProcess())
+        } else {
+            postProcess()
+        }
     }
 
     handleVoiceInputEnd(): void {

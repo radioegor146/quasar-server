@@ -1,4 +1,4 @@
-import {ProcessorBackend, ProcessorRequest, ProcessorResponse} from "../backend";
+import {ProcessorBackend, ProcessorPrepareRequest, ProcessorPrepareResponse, ProcessorRequest, ProcessorResponse} from "../backend";
 import {OpenAI} from "openai";
 import {randomUUID} from "node:crypto";
 
@@ -8,6 +8,10 @@ export interface OpenAIProcessorBackendParams {
 
 export class OpenAIProcessorBackend implements ProcessorBackend {
     constructor(private readonly openAI: OpenAI, private readonly params: OpenAIProcessorBackendParams) {
+    }
+
+    async prepare(request: ProcessorPrepareRequest): Promise<ProcessorPrepareResponse> {
+        return request
     }
 
     async process(request: ProcessorRequest): Promise<ProcessorResponse> {
